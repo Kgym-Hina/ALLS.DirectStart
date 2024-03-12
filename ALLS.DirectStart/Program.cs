@@ -182,6 +182,9 @@ internal static class Program
         }
         obsClient.SetStreamServiceSettings(settings);
         obsClient.StartStream();
+        
+        // kill the process after 5 seconds
+        Task.Delay(5000).ContinueWith(_ => Environment.Exit(0));
     }
     
     /// <summary>
