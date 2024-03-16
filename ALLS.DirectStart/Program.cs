@@ -129,10 +129,10 @@ internal static partial class Program
         // Extract RTMP server address and SRT server address
         var rtmp_addr = string.Empty;
         var srt_addr = string.Empty;
+        var code = string.Empty;
 
         if (jsonDocument.RootElement.TryGetProperty("data", out var dataElement))
         {
-            string code;
             if (dataElement.TryGetProperty("addr", out var addrElement))
             {
                 try
@@ -143,9 +143,9 @@ internal static partial class Program
                     Console.WriteLine($"Addr: {rtmp_addr}");
                     Console.WriteLine($"Code: {code}");
                 }
-                catch (Exception e)
+                catch
                 {
-                    Console.WriteLine(e);
+                    await Console.Out.WriteLineAsync("RTMP 获取失败");
                 }
             }
             
@@ -159,17 +159,19 @@ internal static partial class Program
                     Console.WriteLine($"SRT Addr: {srt_addr}");
                     Console.WriteLine($"Code: {code}");
                 }
-                catch (Exception e)
+                catch
                 {
-                    Console.WriteLine(e);
+                    Console.WriteLine("SRT 获取失败");
                 }
             }
         }
         
+        Console.Out.WriteLine("Starting Stream on OBS");
+
         // Let OBS connect to the RTMP server
         var obsClient = new OBSWebsocket();
         obsClient.ConnectAsync(obsWebsocketUrl, obsWebsocketPassword);
-        obsClient.Connected += (_, _) => StartStream(obsClient, rtmp_addr!, srt_addr!, streamType);
+        obsClient.Connected += (_, _) => StartStream(obsClient, rtmp_addr!, srt_addr!, streamType, code);
 
         Console.ReadLine();
     }
@@ -178,24 +180,30 @@ internal static partial class Program
     /// Start streaming
     /// </summary>
     /// <param name="obsClient">Reference to OBS Client</param>
-    /// <param name="rtmp_addr">RTMP</param>
-    /// <param name="srt_addr">SRT</param>
+    /// <param name="rtmpAddr">RTMP</param>
+    /// <param name="srtAddr">SRT</param>
     /// <param name="streamUrlType">Stream type</param>
     /// <param name="code">RTMP Code</param>
-    private static void StartStream(IOBSWebsocket obsClient, string rtmp_addr, string srt_addr, int streamUrlType, string code = "")
+    private static void StartStream(IOBSWebsocket obsClient, string rtmpAddr, string srtAddr, int streamUrlType, string code = "")
     {
         var settings = obsClient.GetStreamServiceSettings();
         if (streamUrlType == 0)
         {
-            settings.Settings.Server = rtmp_addr;
+            settings.Settings.Server = rtmpAddr;
             settings.Settings.Key = code;
+            Console.Out.WriteLine("RTMP Server: " + rtmpAddr);
+            Console.Out.WriteLine("RTMP Code: " + code);
         }
         else
         {
-            settings.Settings.Server = srt_addr;
+            settings.Settings.Server = srtAddr;
+            settings.Settings.Key = "";
         }
         obsClient.SetStreamServiceSettings(settings);
         obsClient.StartStream();
+
+        Console.Out.WriteLine("Stream Started. OBS should be connected to the server.");
+        Console.Out.WriteLine("Quitting in 5 seconds.");
         
         // kill the process after 5 seconds
         Task.Delay(5000).ContinueWith(_ => Environment.Exit(0));
