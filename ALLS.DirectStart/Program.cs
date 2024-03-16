@@ -4,7 +4,7 @@ using OBSWebsocketDotNet;
 
 namespace ALLS.DirectStart;
 
-internal static class Program
+internal static partial class Program
 {
     static readonly HttpClient client = new HttpClient();
 
@@ -13,7 +13,7 @@ internal static class Program
         var area_id = 235;
         var room_id = 9372130;
         var parent_area_id = 6;
-        var cookie = string.Empty;
+        var cookie = File.Exists("Cookies.txt") ? await File.ReadAllTextAsync("Cookies.txt") : string.Empty;
         var obsWebsocketUrl = "ws://127.0.0.1:4455";
         var obsWebsocketPassword = string.Empty;
         var streamType = 0;
@@ -129,26 +129,40 @@ internal static class Program
         // Extract RTMP server address and SRT server address
         var rtmp_addr = string.Empty;
         var srt_addr = string.Empty;
-        
+
         if (jsonDocument.RootElement.TryGetProperty("data", out var dataElement))
         {
             string code;
             if (dataElement.TryGetProperty("addr", out var addrElement))
             {
-                rtmp_addr = addrElement.GetProperty("addr").GetString();
-                code = addrElement.GetProperty("code").GetString()!;
+                try
+                {
+                    rtmp_addr = addrElement.GetProperty("addr").GetString();
+                    code = addrElement.GetProperty("code").GetString()!;
 
-                Console.WriteLine($"Addr: {rtmp_addr}");
-                Console.WriteLine($"Code: {code}");
+                    Console.WriteLine($"Addr: {rtmp_addr}");
+                    Console.WriteLine($"Code: {code}");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
             }
             
             if (dataElement.TryGetProperty("srt_addr", out var srtAddrElement))
             {
-                srt_addr = srtAddrElement.GetProperty("addr").GetString();
-                code = srtAddrElement.GetProperty("code").GetString()!;
+                try
+                {
+                    srt_addr = srtAddrElement.GetProperty("addr").GetString();
+                    code = srtAddrElement.GetProperty("code").GetString()!;
 
-                Console.WriteLine($"SRT Addr: {srt_addr}");
-                Console.WriteLine($"Code: {code}");
+                    Console.WriteLine($"SRT Addr: {srt_addr}");
+                    Console.WriteLine($"Code: {code}");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
             }
         }
         
@@ -186,14 +200,11 @@ internal static class Program
         // kill the process after 5 seconds
         Task.Delay(5000).ContinueWith(_ => Environment.Exit(0));
     }
-    
+
     /// <summary>
     /// Extract bili_jct from cookie
     /// </summary>
     /// <returns></returns>
     [GeneratedRegex("bili_jct=([^;]*)")]
-    private static Regex ExtractToken()
-    {
-        throw new NotImplementedException();
-    }
+    private static partial Regex ExtractToken();
 }
