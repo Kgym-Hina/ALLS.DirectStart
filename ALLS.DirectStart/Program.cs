@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
 using OBSWebsocketDotNet;
 
 namespace ALLS.DirectStart;
@@ -10,39 +11,46 @@ internal static partial class Program
 
     private static async Task Main()
     {
-        var area_id = 235;
-        var room_id = 9372130;
-        var parent_area_id = 6;
+        var areaId = 235;
+        var roomId = 9372130;
+        var parentAreaId = 6;
         var cookie = File.Exists("Cookies.txt") ? await File.ReadAllTextAsync("Cookies.txt") : string.Empty;
         var obsWebsocketUrl = "ws://127.0.0.1:4455";
         var obsWebsocketPassword = string.Empty;
         var streamType = 0;
+        var configFilePath =
+            $"{Environment.GetEnvironmentVariable("HOME")}/.config/obs-studio/basic/profiles/Untitled/service.json";
+        var startType = 0;
+            
 
         if (File.Exists("Config.json"))
         {
             var config = JsonSerializer.Deserialize<StartConfig>(await File.ReadAllTextAsync("Config.json"));
             if (config != null)
             {
-                area_id = config.AreaId;
-                room_id = config.RoomId;
-                parent_area_id = config.ParentAreaId;
+                areaId = config.AreaId;
+                roomId = config.RoomId;
+                parentAreaId = config.ParentAreaId;
                 cookie = config.Cookie;
                 obsWebsocketUrl = config.OBSWebsocketUrl;
                 obsWebsocketPassword = config.OBSWebsocketPassword;
                 streamType = config.StreamURLType;
+                configFilePath = config.ConfigFilePath;
+                startType = config.StartType;
             }
         }
         else
         {
             var config = new StartConfig()
             {
-                AreaId = area_id,
-                RoomId = room_id,
-                ParentAreaId = parent_area_id,
+                AreaId = areaId,
+                RoomId = roomId,
+                ParentAreaId = parentAreaId,
                 Cookie = cookie,
                 OBSWebsocketUrl = obsWebsocketUrl,
                 OBSWebsocketPassword = obsWebsocketPassword,
                 StreamURLType = 0,
+                ConfigFilePath = $"{Environment.GetEnvironmentVariable("HOME")}/.config/obs-studio/basic/profiles/Untitled/service.json",
                 Description = "以上是默认配置，请修改 Config.json 文件以更改配置, 否则无法启动直播. 请注意, 请不要泄露您的 Cookies."
             };
             await File.WriteAllTextAsync("Config.json", JsonSerializer.Serialize(config));
@@ -60,12 +68,12 @@ internal static partial class Program
         // First API call - switch room
         // seems like this API call is not necessary
         var request1 = new HttpRequestMessage(HttpMethod.Get,
-            $"https://api.live.bilibili.com/xlive/app-blink/v1/index/getNewRoomSwitch?platform=pc&area_parent_id={parent_area_id}&area_id={area_id}");
+            $"https://api.live.bilibili.com/xlive/app-blink/v1/index/getNewRoomSwitch?platform=pc&area_parent_id={parentAreaId}&area_id={areaId}");
 
         request1.Headers.Add("authority", "api.live.bilibili.com");
         request1.Headers.Add("method", "GET");
         request1.Headers.Add("path",
-            $"/xlive/app-blink/v1/index/getNewRoomSwitch?platform=pc&area_parent_id=6&area_id={area_id}");
+            $"/xlive/app-blink/v1/index/getNewRoomSwitch?platform=pc&area_parent_id=6&area_id={areaId}");
 
         var response1 = await client.SendAsync(request1);
 
@@ -83,9 +91,9 @@ internal static partial class Program
 
         var formdata2 = new Dictionary<string, string>
         {
-            { "room_id", $"{room_id}" },
+            { "room_id", $"{roomId}" },
             { "platform", "pc" },
-            { "area_v2", $"{area_id}" },
+            { "area_v2", $"{areaId}" },
             { "backup_stream", "0" },
             { "csrf_token", biliJct },
             { "csrf", biliJct }
@@ -165,6 +173,12 @@ internal static partial class Program
                 }
             }
         }
+
+        if (startType == 1)
+        {
+            WriteConfigFile(configFilePath, code, rtmp_addr, false);
+            return;
+        }
         
         Console.Out.WriteLine("Starting Stream on OBS");
 
@@ -174,6 +188,23 @@ internal static partial class Program
         obsClient.Connected += (_, _) => StartStream(obsClient, rtmp_addr!, srt_addr!, streamType, code);
 
         Console.ReadLine();
+    }
+
+    private static void WriteConfigFile(string filePath, string key, string server, bool useAuth)
+    {
+        var jsonObject = new JObject
+        {
+            ["type"] = "rtmp_custom",
+            ["settings"] = new JObject
+            {
+                ["server"] = server,
+                ["key"] = key,
+                ["use_auth"] = useAuth
+            }
+        };
+        
+        File.Move(filePath, $"{filePath}.bak", true);
+        File.WriteAllText(filePath, jsonObject.ToString());
     }
 
     /// <summary>

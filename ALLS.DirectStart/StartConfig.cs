@@ -10,5 +10,7 @@ public class StartConfig
     public string OBSWebsocketPassword { get; set; }
     // 0: RTMP, 1: SRT
     public int StreamURLType { get; set; }
+    public int StartType { get; set; }
+    public string ConfigFilePath { get; set; }
     public string Description { get; set; }
 }
